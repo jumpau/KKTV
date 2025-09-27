@@ -124,11 +124,11 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
     isCollapsed,
   };
 
-  const [menuItems] = useState([
+  const [menuItems, setMenuItems] = useState([
     {
-      icon: Film,
-      label: '线路',
-      href: '/sources',
+      icon: Home,
+      label: '首页',
+      href: '/',
     },
     {
       icon: Search,
@@ -137,7 +137,32 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
     },
   ]);
 
-  // 移除了自定义分类逻辑
+  // 动态加载线路信息
+  useEffect(() => {
+    const fetchSources = async () => {
+      try {
+        const response = await fetch('/api/sources');
+        const result = await response.json();
+        
+        if (result.code === 200 && result.data.length > 0) {
+          const sourceItems = result.data.map((source: any) => ({
+            icon: Film,
+            label: source.name,
+            href: `/sources/${source.id}`,
+          }));
+          
+          setMenuItems(prevItems => [
+            ...prevItems,
+            ...sourceItems
+          ]);
+        }
+      } catch (error) {
+        // 获取线路失败，保持默认菜单
+      }
+    };
+
+    fetchSources();
+  }, []);
 
   return (
     <SidebarContext.Provider value={contextValue}>
