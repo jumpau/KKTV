@@ -8,7 +8,8 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { getAuthInfoFromBrowserCookie } from '@/lib/auth';
-import { checkForUpdates, CURRENT_VERSION, UpdateStatus } from '@/lib/version';
+// 版本检测功能已移除
+// import { checkForUpdates, CURRENT_VERSION, UpdateStatus } from '@/lib/version';
 
 interface AuthInfo {
   username?: string;
@@ -37,10 +38,6 @@ export const UserMenu: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
-
-  // 版本检查相关状态
-  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
-  const [isChecking, setIsChecking] = useState(true);
 
   // 确保组件已挂载
   useEffect(() => {
@@ -109,21 +106,7 @@ export const UserMenu: React.FC = () => {
     }
   }, []);
 
-  // 版本检查
-  useEffect(() => {
-    const checkUpdate = async () => {
-      try {
-        const status = await checkForUpdates();
-        setUpdateStatus(status);
-      } catch (error) {
-        console.warn('版本检查失败:', error);
-      } finally {
-        setIsChecking(false);
-      }
-    };
-
-    checkUpdate();
-  }, []);
+  // 版本检测功能已移除
 
   const handleMenuClick = () => {
     setIsOpen(!isOpen);
