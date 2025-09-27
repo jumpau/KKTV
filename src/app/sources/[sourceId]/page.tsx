@@ -80,10 +80,12 @@ export default function SourceDetailPage() {
   }, [sourceId]);
 
   // 获取视频数据
-  const fetchVideos = useCallback(async (page: number, categoryId?: number, reset = false) => {
+  const fetchVideos = useCallback(async (page: number, categoryId?: number, reset = false): Promise<void> => {
     try {
       if (page === 1) setLoading(true);
       else setLoadingMore(true);
+
+      console.log(`开始获取第${page}页数据，分类ID: ${categoryId || '无'}`);
 
       const response = await fetch('/api/sources', {
         method: 'POST',
@@ -102,6 +104,8 @@ export default function SourceDetailPage() {
       });
 
       const result = await response.json();
+      console.log(`第${page}页API响应:`, result);
+
       if (result.code === 200) {
         if (!source) setSource(result.source);
         
@@ -124,9 +128,11 @@ export default function SourceDetailPage() {
         }
       } else {
         console.error('API返回错误:', result);
+        setHasMore(false);
       }
     } catch (error) {
       console.error('获取视频失败:', error);
+      setHasMore(false);
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -142,11 +148,10 @@ export default function SourceDetailPage() {
 
   // 无限滚动
   useEffect(() => {
-    let isLoading = false;
-    
     const handleScroll = () => {
-      // 避免重复触发
-      if (isLoading || loadingMore || !hasMore) {
+      // 检查是否正在加载或没有更多数据
+      if (loadingMore || !hasMore) {
+        console.log('滚动被阻止:', { loadingMore, hasMore, currentPage });
         return;
       }
       
@@ -154,50 +159,41 @@ export default function SourceDetailPage() {
       const windowHeight = window.innerHeight;
       const documentHeight = document.documentElement.scrollHeight;
       
+      // 距离底部的距离
+      const distanceFromBottom = documentHeight - (scrollTop + windowHeight);
       const scrollPercentage = ((scrollTop + windowHeight) / documentHeight) * 100;
       
-      console.log('滚动检测:', {
+      console.log('滚动状态:', {
         scrollTop: Math.round(scrollTop),
         windowHeight,
         documentHeight,
-        scrollPercentage: scrollPercentage.toFixed(2) + '%',
-        distance: documentHeight - (scrollTop + windowHeight),
+        distanceFromBottom: Math.round(distanceFromBottom),
+        scrollPercentage: Math.round(scrollPercentage) + '%',
         currentPage,
         loadingMore,
-        hasMore
+        hasMore,
+        videosCount: videos.length
       });
       
-      // 当滚动达到 90% 时就开始加载下一页
-      if (scrollPercentage >= 90) {
-        isLoading = true;
+      // 当距离底部小于 500px 或滚动超过 85% 时触发加载
+      if (distanceFromBottom < 500 || scrollPercentage > 85) {
         const nextPage = currentPage + 1;
-        console.log(`触发滚动加载（${scrollPercentage.toFixed(2)}%），当前页：${currentPage}，加载下一页：${nextPage}`);
+        console.log(`🚀 触发滚动加载！距离底部: ${Math.round(distanceFromBottom)}px, 滚动: ${Math.round(scrollPercentage)}%, 当前页: ${currentPage}, 下一页: ${nextPage}`);
+        
+        // 立即设置页码并加载
         setCurrentPage(nextPage);
-        fetchVideos(nextPage, selectedCategory || undefined).finally(() => {
-          isLoading = false;
-        });
+        fetchVideos(nextPage, selectedCategory || undefined);
       }
     };
 
-    // 使用节流函数优化性能
-    let throttleTimeout: number | null = null;
-    const throttledHandleScroll = () => {
-      if (throttleTimeout) return;
-      throttleTimeout = setTimeout(() => {
-        handleScroll();
-        throttleTimeout = null;
-      }, 200); // 增加节流时间到200ms
-    };
-
-    window.addEventListener('scroll', throttledHandleScroll, { passive: true });
+    // 添加滚动监听器
+    window.addEventListener('scroll', handleScroll, { passive: true });
     
+    // 清理函数
     return () => {
-      window.removeEventListener('scroll', throttledHandleScroll);
-      if (throttleTimeout) {
-        clearTimeout(throttleTimeout);
-      }
+      window.removeEventListener('scroll', handleScroll);
     };
-  }, [currentPage, loadingMore, hasMore, selectedCategory, fetchVideos]);
+  }, [currentPage, loadingMore, hasMore, selectedCategory, fetchVideos, videos.length]);
 
   // 处理分类切换
   const handleCategoryChange = (categoryId: number | null) => {
