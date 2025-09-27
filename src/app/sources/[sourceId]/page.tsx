@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import { ChevronLeft } from 'lucide-react';
@@ -33,6 +33,7 @@ interface Category {
 
 export default function SourceDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const sourceId = params?.sourceId as string;
   
   const [source, setSource] = useState<Source | null>(null);
@@ -221,10 +222,13 @@ export default function SourceDetailPage() {
     <PageLayout>
       <div className="p-8">
         <div className="flex items-center mb-6">
-          <Link href="/sources" className="flex items-center text-gray-600 hover:text-gray-800 mr-4">
+          <button 
+            onClick={() => router.back()} 
+            className="flex items-center text-gray-600 hover:text-gray-800 mr-4 bg-transparent border-none cursor-pointer"
+          >
             <ChevronLeft className="w-5 h-5" />
             返回
-          </Link>
+          </button>
           <h1 className="text-2xl font-bold">{source.name}</h1>
         </div>
         
