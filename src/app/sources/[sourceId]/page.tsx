@@ -164,84 +164,45 @@ export default function SourceDetailPage() {
     setCurrentPage(1);
   }, [sourceId, selectedCategory, fetchVideos]);
 
-  // 无限滚动 - 借鉴搜索页面的实现，监听 document.body
+  // 无限滚动 - 使用state管理加载状态
   useEffect(() => {
     console.log('🎯 设置body滚动监听器');
-    let isLoading = false;
-    let isRunning = false;
+    let lastTriggerTime = 0;
     
     // 获取滚动位置的函数 - 专门针对 body 滚动
     const getScrollTop = () => {
       return document.body.scrollTop || 0;
     };
 
-    const checkScrollPosition = () => {
-      if (!isRunning) return;
-
-      const scrollTop = getScrollTop();
-      const windowHeight = window.innerHeight;
-      const documentHeight = document.body.scrollHeight;
-      const distanceFromBottom = documentHeight - (scrollTop + windowHeight);
-      
-      console.log('📜 持续滚动检测:', {
-        scrollTop: Math.round(scrollTop),
-        windowHeight,
-        documentHeight,
-        distanceFromBottom: Math.round(distanceFromBottom),
-        isLoading,
-        shouldLoad: !isLoading && distanceFromBottom < 500
-      });
-      
-      // 检查是否应该触发加载
-      if (!isLoading && distanceFromBottom < 500) {
-        isLoading = true;
-        console.log('🚀 触发滚动加载！距离底部:', Math.round(distanceFromBottom) + 'px');
-        
-        // 获取当前页码并加载下一页
-        setCurrentPage((prev: number) => {
-          const nextPage = prev + 1;
-          console.log(`📈 加载第${nextPage}页`);
-          fetchVideos(nextPage, selectedCategory || undefined).finally(() => {
-            isLoading = false;
-            console.log('✅ 第' + nextPage + '页加载完成，重置loading状态');
-          });
-          return nextPage;
-        });
-      }
-
-      requestAnimationFrame(checkScrollPosition);
-    };
-
-    // 使用 requestAnimationFrame 持续检测滚动位置
-    isRunning = true;
-    checkScrollPosition();
-
-    // 监听 body 元素的滚动事件
     const handleScroll = () => {
+      const now = Date.now();
+      // 节流控制
+      if (now - lastTriggerTime < 1000) return;
+      
       const scrollTop = getScrollTop();
       const windowHeight = window.innerHeight;
       const documentHeight = document.body.scrollHeight;
       const distanceFromBottom = documentHeight - (scrollTop + windowHeight);
       
-      console.log('📜 Body滚动事件:', {
+      console.log('📜 Body滚动检测:', {
         scrollTop: Math.round(scrollTop),
         windowHeight,
         documentHeight,
         distanceFromBottom: Math.round(distanceFromBottom),
-        isLoading
+        loadingMore,
+        hasMore,
+        currentPage
       });
       
-      // 检查是否应该触发加载
-      if (!isLoading && distanceFromBottom < 500) {
-        isLoading = true;
+      // 检查是否应该触发加载 - 使用组件状态而不是局部变量
+      if (!loadingMore && hasMore && distanceFromBottom < 300) {
+        lastTriggerTime = now;
         console.log('🚀 触发滚动加载！距离底部:', Math.round(distanceFromBottom) + 'px');
         
         setCurrentPage((prev: number) => {
           const nextPage = prev + 1;
-          console.log(`📈 加载第${nextPage}页`);
-          fetchVideos(nextPage, selectedCategory || undefined).finally(() => {
-            isLoading = false;
-          });
+          console.log(`📈 开始加载第${nextPage}页`);
+          fetchVideos(nextPage, selectedCategory || undefined);
           return nextPage;
         });
       }
@@ -255,16 +216,18 @@ export default function SourceDetailPage() {
       console.log('🧪 当前Body滚动位置:', {
         bodyScrollTop: document.body.scrollTop,
         bodyScrollHeight: document.body.scrollHeight,
-        windowHeight: window.innerHeight
+        windowHeight: window.innerHeight,
+        loadingMore,
+        hasMore,
+        videosCount: videos.length
       });
     }, 2000);
     
     return () => {
-      isRunning = false; // 停止 requestAnimationFrame 循环
       document.body.removeEventListener('scroll', handleScroll);
       console.log('🧹 Body滚动监听器已移除');
     };
-  }, [sourceId]); // 只在sourceId变化时重新设置
+  }, [loadingMore, hasMore, currentPage, selectedCategory, fetchVideos]); // 依赖关键状态
 
   // 处理分类切换
   const handleCategoryChange = (categoryId: number | null) => {
