@@ -164,7 +164,7 @@ export default function SourceDetailPage() {
     setCurrentPage(1);
   }, [sourceId, selectedCategory, fetchVideos]);
 
-  // 无限滚动 - 稳定实现，避免频繁重新绑定
+  // 无限滚动 - 多种滚动检测方式
   useEffect(() => {
     console.log('🎯 设置滚动监听器');
     let isLoading = false;
@@ -172,29 +172,38 @@ export default function SourceDetailPage() {
     
     const handleScroll = () => {
       const now = Date.now();
-      // 节流控制
-      if (now - lastTriggerTime < 1000) return;
+      // 节流控制，减少到200ms让滚动更灵敏
+      if (now - lastTriggerTime < 200) return;
       
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      // 多种方式获取滚动位置
+      const scrollTop = Math.max(window.pageYOffset, document.documentElement.scrollTop, document.body.scrollTop);
       const windowHeight = window.innerHeight;
-      const documentHeight = document.documentElement.scrollHeight;
+      const documentHeight = Math.max(
+        document.body.scrollHeight,
+        document.body.offsetHeight,
+        document.documentElement.clientHeight,
+        document.documentElement.scrollHeight,
+        document.documentElement.offsetHeight
+      );
+      
       const distanceFromBottom = documentHeight - (scrollTop + windowHeight);
       const scrollPercentage = ((scrollTop + windowHeight) / documentHeight) * 100;
       
-      console.log('📜 滚动事件:', {
+      console.log('📜 滚动事件 [' + new Date().toLocaleTimeString() + ']:', {
         scrollTop: Math.round(scrollTop),
         windowHeight,
         documentHeight,
         distanceFromBottom: Math.round(distanceFromBottom),
         scrollPercentage: Math.round(scrollPercentage) + '%',
-        isLoading
+        isLoading,
+        shouldLoad: !isLoading && distanceFromBottom < 500
       });
       
-      // 检查是否应该触发加载
-      if (!isLoading && distanceFromBottom < 300) {
+      // 检查是否应该触发加载 - 放宽条件
+      if (!isLoading && distanceFromBottom < 500) {
         isLoading = true;
         lastTriggerTime = now;
-        console.log('🚀 触发滚动加载！');
+        console.log('🚀 触发滚动加载！距离底部:', Math.round(distanceFromBottom) + 'px');
         
         // 获取当前页码并加载下一页
         setCurrentPage((prev: number) => {
@@ -202,29 +211,63 @@ export default function SourceDetailPage() {
           console.log(`📈 加载第${nextPage}页`);
           fetchVideos(nextPage, selectedCategory || undefined).finally(() => {
             isLoading = false;
+            console.log('✅ 第' + nextPage + '页加载完成，重置loading状态');
           });
           return nextPage;
         });
       }
     };
 
-    // 添加监听器
+    // 添加多个监听器以确保捕获滚动事件
     window.addEventListener('scroll', handleScroll, { passive: true });
-    console.log('✅ 滚动监听器已绑定');
+    document.addEventListener('scroll', handleScroll, { passive: true });
+    document.documentElement.addEventListener('scroll', handleScroll, { passive: true });
     
-    // 测试滚动位置
+    console.log('✅ 滚动监听器已绑定到 window、document 和 documentElement');
+    
+    // 测试滚动位置和添加手动触发器
     setTimeout(() => {
       const testScroll = {
-        scrollTop: window.pageYOffset,
+        windowScrollTop: window.pageYOffset,
+        documentScrollTop: document.documentElement.scrollTop,
+        bodyScrollTop: document.body.scrollTop,
         windowHeight: window.innerHeight,
-        documentHeight: document.documentElement.scrollHeight
+        documentHeight: document.documentElement.scrollHeight,
+        bodyHeight: document.body.scrollHeight
       };
-      console.log('🧪 当前滚动位置:', testScroll);
+      console.log('🧪 详细滚动位置信息:', testScroll);
+      
+      // 添加临时的测试按钮来手动触发滚动事件
+      const testButton = document.createElement('button');
+      testButton.innerText = '🧪 测试滚动检测';
+      testButton.style.position = 'fixed';
+      testButton.style.bottom = '100px';
+      testButton.style.right = '20px';
+      testButton.style.zIndex = '9999';
+      testButton.style.background = 'red';
+      testButton.style.color = 'white';
+      testButton.style.padding = '10px';
+      testButton.style.border = 'none';
+      testButton.style.borderRadius = '5px';
+      testButton.onclick = () => {
+        console.log('🧪 手动触发滚动检测');
+        handleScroll();
+      };
+      document.body.appendChild(testButton);
+      
+      // 5秒后移除测试按钮
+      setTimeout(() => {
+        if (testButton && testButton.parentNode) {
+          testButton.parentNode.removeChild(testButton);
+        }
+      }, 5000);
     }, 2000);
     
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      console.log('🧹 滚动监听器已移除');
+      document.removeEventListener('scroll', handleScroll);
+      document.documentElement.removeEventListener('scroll', handleScroll);
+      console.log('🧹 所有滚动监听器已移除');
     };
   }, [sourceId]); // 只在sourceId变化时重新设置
 
