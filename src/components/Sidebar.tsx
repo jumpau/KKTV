@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import React, {
   createContext,
   useCallback,
@@ -8,9 +10,8 @@ import React, {
   useEffect,
   useState,
 } from 'react';
+
 import { Film, Home, Menu, Search } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
 
 import { useSite } from './SiteProvider';
 
@@ -55,7 +56,6 @@ declare global {
 }
 
 const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
-  const router = useRouter();
   const pathname = usePathname();
 
   // 若同一次 SPA 会话中已经读取过折叠状态，则直接复用，避免闪烁
@@ -122,8 +122,18 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
         const response = await fetch('/api/sources');
         const result = await response.json();
         
-        if (result.code === 200 && result.data.length > 0) {
-          const sourceItems = result.data.map((source: any) => ({
+        // 支持多种API响应格式
+        let sources = [];
+        if (Array.isArray(result)) {
+          sources = result;
+        } else if (result.code === 200 && result.data) {
+          sources = result.data;
+        } else if (result.sources) {
+          sources = result.sources;
+        }
+
+        if (sources.length > 0) {
+          const sourceItems = sources.map((source: any) => ({
             icon: Film,
             label: source.name,
             href: `/sources/${source.id}`,
