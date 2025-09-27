@@ -57,19 +57,22 @@ export default function SourceDetailPage() {
           },
           body: JSON.stringify({
             sourceId: sourceId,
-            action: 'categories'
+            action: 'categories',
+            params: {
+              ac: 'list'
+            }
           }),
         });
 
         const result = await response.json();
         if (result.code === 200) {
           setSource(result.source);
-          if (result.data && Array.isArray(result.data)) {
-            setCategories(result.data);
+          if (result.data && result.data.class && Array.isArray(result.data.class)) {
+            setCategories(result.data.class);
           }
         }
       } catch (error) {
-        // 获取分类失败
+        console.error('获取分类失败:', error);
       }
     };
 
@@ -91,6 +94,7 @@ export default function SourceDetailPage() {
           sourceId: sourceId,
           action: 'videos',
           params: {
+            ac: 'videolist',
             pg: page,
             pagesize: 24,
             ...(categoryId && { t: categoryId })
