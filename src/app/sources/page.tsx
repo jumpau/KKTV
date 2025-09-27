@@ -1,29 +1,60 @@
 'use client';
 
+import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 import PageLayout from '@/components/PageLayout';
+import VideoCard from '@/components/VideoCard';
+
+interface VideoItem {
+  vod_id: number;
+  vod_name: string;
+  vod_pic: string;
+  vod_year?: string;
+  type_name?: string;
+}
 
 interface Source {
   id: string;
   name: string;
-  api: string;
-  detail?: string;
 }
 
-export default function SourcesPage() {
-  const [sources, setSources] = useState<Source[]>([]);
+export default function SourceDetailPage() {
+  const params = useParams();
+  const sourceId = params?.sourceId as string;
+  
+  const [source, setSource] = useState<Source | null>(null);
+  const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchSources = async () => {
+    if (!sourceId) return;
+
+    const fetchData = async () => {
       try {
-        const response = await fetch('/api/sources');
+        // 获取视频数据
+        const response = await fetch('/api/sources', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sourceId: sourceId,
+            action: 'videos',
+            params: {
+              pg: 1,
+              pagesize: 24
+            }
+          }),
+        });
+
         const result = await response.json();
-        
         if (result.code === 200) {
-          setSources(result.data);
+          setSource(result.source);
+          if (result.data.list) {
+            setVideos(result.data.list);
+          }
         }
       } catch (error) {
         // 获取失败
@@ -32,8 +63,8 @@ export default function SourcesPage() {
       }
     };
 
-    fetchSources();
-  }, []);
+    fetchData();
+  }, [sourceId]);
 
   if (loading) {
     return (
@@ -45,35 +76,50 @@ export default function SourcesPage() {
     );
   }
 
+  if (!source) {
+    return (
+      <PageLayout>
+        <div className="p-8 text-center">
+          <h2 className="text-xl font-bold mb-4">线路不存在</h2>
+          <Link href="/sources" className="text-blue-500 hover:text-blue-600">
+            返回线路列表
+          </Link>
+        </div>
+      </PageLayout>
+    );
+  }
+
   return (
     <PageLayout>
       <div className="p-8">
         <div className="flex items-center mb-6">
-          <Link href="/" className="flex items-center text-gray-600 hover:text-gray-800 mr-4">
+          <Link href="/sources" className="flex items-center text-gray-600 hover:text-gray-800 mr-4">
             <ChevronLeft className="w-5 h-5" />
-            返回首页
+            返回
           </Link>
-          <h1 className="text-2xl font-bold">所有线路</h1>
+          <h1 className="text-2xl font-bold">{source.name}</h1>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sources.map((source) => (
-            <div key={source.id} className="border rounded-lg p-6 hover:shadow-md transition-shadow">
-              <h3 className="text-lg font-semibold mb-2">{source.name}</h3>
-              <p className="text-sm text-gray-600 mb-4">线路ID: {source.id}</p>
-              <Link
-                href={`/sources/${source.id}`}
-                className="inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
-              >
-                进入线路
-              </Link>
+        <div className="grid grid-cols-3 gap-x-2 gap-y-6 sm:gap-y-8 px-0 sm:px-2 sm:grid-cols-[repeat(auto-fill,_minmax(11rem,_1fr))] sm:gap-x-4">
+          {videos.map((video) => (
+            <div key={video.vod_id} className="w-full">
+              <VideoCard
+                from="search"
+                id={String(video.vod_id)}
+                source={sourceId}
+                title={video.vod_name}
+                poster={video.vod_pic}
+                year={video.vod_year}
+                source_name={source.name}
+                episodes={1}
+              />
             </div>
           ))}
         </div>
         
-        {sources.length === 0 && (
+        {videos.length === 0 && (
           <div className="text-center text-gray-500 py-12">
-            暂无可用线路
+            该线路暂无视频内容
           </div>
         )}
       </div>
