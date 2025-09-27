@@ -57,24 +57,19 @@ export async function POST(request: Request) {
     let url = source.api;
     
     if (action === 'categories') {
-      // 获取分类信息
-      url += '/?ac=list';
+      // 获取分类信息 - 使用ac=list来获取分类
+      const searchParams = new URLSearchParams({
+        ac: 'list',
+        ...(params || {})
+      });
+      url += '/?' + searchParams.toString();
     } else if (action === 'videos') {
-      // 获取视频列表
-      url += '/?ac=detail';
-      
-      // 添加额外参数
-      if (params) {
-        const searchParams = new URLSearchParams();
-        Object.entries(params).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            searchParams.append(key, String(value));
-          }
-        });
-        if (searchParams.toString()) {
-          url += '&' + searchParams.toString();
-        }
-      }
+      // 获取视频列表 - 使用ac=videolist来获取视频
+      const searchParams = new URLSearchParams({
+        ac: 'videolist',
+        ...(params || {})
+      });
+      url += '/?' + searchParams.toString();
     }
 
     const response = await fetch(url, {
