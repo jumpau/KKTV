@@ -13,8 +13,6 @@ import {
   getAllPlayRecords,
   subscribeToDataUpdates,
 } from '@/lib/db.client';
-import { DoubanItem } from '@/lib/types';
-import { getSourceList, getLatestVideos, SourceData, SourceVideoItem } from '@/lib/source.client';
 
 import CapsuleSwitch from '@/components/CapsuleSwitch';
 import ContinueWatching from '@/components/ContinueWatching';
@@ -23,10 +21,34 @@ import ScrollableRow from '@/components/ScrollableRow';
 import { useSite } from '@/components/SiteProvider';
 import VideoCard from '@/components/VideoCard';
 
+interface Source {
+  id: string;
+  name: string;
+  api: string;
+  detail?: string;
+}
+
+interface VideoItem {
+  vod_id: number;
+  vod_name: string;
+  type_id: number;
+  type_name: string;
+  vod_pic: string;
+  vod_remarks: string;
+  vod_year?: string;
+  vod_score?: string;
+}
+
+interface SourceVideos {
+  source: Source;
+  videos: VideoItem[];
+  loading: boolean;
+}
+
 function HomeClient() {
   const [activeTab, setActiveTab] = useState<'home' | 'favorites'>('home');
-  const [sources, setSources] = useState<SourceData[]>([]);
-  const [sourceVideos, setSourceVideos] = useState<Record<string, SourceVideoItem[]>>({});
+  const [sources, setSources] = useState<Source[]>([]);
+  const [sourceVideos, setSourceVideos] = useState<SourceVideos[]>([]);
   const [loading, setLoading] = useState(true);
   const { announcement } = useSite();
 
@@ -59,36 +81,79 @@ function HomeClient() {
   const [favoriteItems, setFavoriteItems] = useState<FavoriteItem[]>([]);
 
   useEffect(() => {
-    const fetchSourceData = async () => {
+    const fetchSourcesAndVideos = async () => {
       try {
         setLoading(true);
 
-        // 获取资源站列表（不需要分类）
-        const sourceList = await getSourceList();
-        const limitedSources = sourceList.slice(0, 3); // 只取前3个资源站
-        setSources(limitedSources);
+        // 获取所有线路
+        const sourcesResponse = await fetch('/api/sources');
+        const sourcesResult = await sourcesResponse.json();
         
-        // 为每个资源站获取最新视频（不使用分类筛选）
-        const videoPromises = limitedSources.map(async (source: SourceData) => {
-          // 主页场景：不使用分类，获取最新的8个视频用于预览
-          const videos = await getLatestVideos(source.id, 8);
-          return { sourceId: source.id, videos };
-        });
-        
-        const videoResults = await Promise.all(videoPromises);
-        const videoMap: Record<string, SourceVideoItem[]> = {};
-        videoResults.forEach(result => {
-          videoMap[result.sourceId] = result.videos;
-        });
-        setSourceVideos(videoMap);
+        if (sourcesResult.code === 200 && sourcesResult.data.length > 0) {
+          setSources(sourcesResult.data);
+          
+          // 取前3个线路获取视频数据
+          const topSources = sourcesResult.data.slice(0, 3);
+          const initialSourceVideos: SourceVideos[] = topSources.map((source: Source) => ({
+            source,
+            videos: [],
+            loading: true
+          }));
+          
+          setSourceVideos(initialSourceVideos);
+          
+          // 并行获取每个线路的视频数据
+          const videoPromises = topSources.map(async (source: Source) => {
+            try {
+              const response = await fetch('/api/sources', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  sourceId: source.id,
+                  action: 'videos',
+                  params: {
+                    pg: 1,
+                    pagesize: 10
+                  }
+                }),
+              });
+              
+              const result = await response.json();
+              if (result.code === 200 && result.data.list) {
+                return {
+                  source,
+                  videos: result.data.list,
+                  loading: false
+                };
+              }
+              return {
+                source,
+                videos: [],
+                loading: false
+              };
+            } catch (error) {
+              console.error(`获取${source.name}数据失败:`, error);
+              return {
+                source,
+                videos: [],
+                loading: false
+              };
+            }
+          });
+          
+          const results = await Promise.all(videoPromises);
+          setSourceVideos(results);
+        }
       } catch (error) {
-        console.error('获取资源站数据失败:', error);
+        console.error('获取线路数据失败:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSourceData();
+    fetchSourcesAndVideos();
   }, []);
 
   // 处理收藏数据更新的函数
@@ -208,61 +273,63 @@ function HomeClient() {
               {/* 继续观看 */}
               <ContinueWatching />
 
-              {/* 资源站视频列表 */}
-              {sources.map((source, sourceIndex) => {
-                const videos = sourceVideos[source.id] || [];
-                
-                return (
-                  <section key={source.id} className='mb-8'>
-                    <div className='mb-4 flex items-center justify-between'>
-                      <h2 className='text-xl font-bold text-gray-800 dark:text-gray-200'>
-                        {source.name}
-                      </h2>
-                      <Link
-                        href={`/sources?source=${source.id}`}
-                        className='flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                      >
-                        查看更多
-                        <ChevronRight className='w-4 h-4 ml-1' />
-                      </Link>
-                    </div>
-                    <ScrollableRow>
-                      {loading
-                        ? // 加载状态显示灰色占位数据
-                          Array.from({ length: 8 }).map((_, index) => (
-                            <div
-                              key={`loading-${sourceIndex}-${index}`}
-                              className='min-w-[96px] w-24 sm:min-w-[180px] sm:w-44'
-                            >
-                              <div className='relative aspect-[2/3] w-full overflow-hidden rounded-lg bg-gray-200 animate-pulse dark:bg-gray-800'>
-                                <div className='absolute inset-0 bg-gray-300 dark:bg-gray-700'></div>
-                              </div>
-                              <div className='mt-2 h-4 bg-gray-200 rounded animate-pulse dark:bg-gray-800'></div>
+              {/* 线路视频 */}
+              {sourceVideos.map((sourceData, index) => (
+                <section key={sourceData.source.id} className='mb-8'>
+                  <div className='mb-4 flex items-center justify-between'>
+                    <h2 className='text-xl font-bold text-gray-800 dark:text-gray-200'>
+                      {sourceData.source.name}
+                    </h2>
+                    <Link
+                      href={`/sources/${sourceData.source.id}`}
+                      className='flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                    >
+                      查看更多
+                      <ChevronRight className='w-4 h-4 ml-1' />
+                    </Link>
+                  </div>
+                  <ScrollableRow>
+                    {sourceData.loading || loading
+                      ? // 加载状态显示灰色占位数据
+                        Array.from({ length: 8 }).map((_, index) => (
+                          <div
+                            key={index}
+                            className='min-w-[96px] w-24 sm:min-w-[180px] sm:w-44'
+                          >
+                            <div className='relative aspect-[2/3] w-full overflow-hidden rounded-lg bg-gray-200 animate-pulse dark:bg-gray-800'>
+                              <div className='absolute inset-0 bg-gray-300 dark:bg-gray-700'></div>
                             </div>
-                          ))
-                        : // 显示真实数据
-                          videos.map((video, index) => (
-                            <div
-                              key={`${source.id}-${video.vod_id}`}
-                              className='min-w-[96px] w-24 sm:min-w-[180px] sm:w-44'
-                            >
-                              <VideoCard
-                                from="source"
-                                id={video.vod_id.toString()}
-                                source={source.id}
-                                title={video.vod_name}
-                                poster={video.vod_pic || ''}
-                                year={video.vod_year || ''}
-                                source_name={source.name}
-                              />
-                            </div>
-                          ))}
-                    </ScrollableRow>
-                  </section>
-                );
-              })}
+                            <div className='mt-2 h-4 bg-gray-200 rounded animate-pulse dark:bg-gray-800'></div>
+                          </div>
+                        ))
+                      : // 显示真实数据
+                        sourceData.videos.map((video, videoIndex) => (
+                          <div
+                            key={videoIndex}
+                            className='min-w-[96px] w-24 sm:min-w-[180px] sm:w-44'
+                          >
+                            <VideoCard
+                              from='search'
+                              id={String(video.vod_id)}
+                              source={sourceData.source.id}
+                              title={video.vod_name}
+                              poster={video.vod_pic}
+                              year={video.vod_year}
+                              source_name={sourceData.source.name}
+                              episodes={1} // 默认为1，实际可以从API响应中获取更准确的数据
+                            />
+                          </div>
+                        ))}
+                  </ScrollableRow>
+                </section>
+              ))}
 
-
+              {/* 如果没有线路数据，显示提示 */}
+              {!loading && sourceVideos.length === 0 && (
+                <div className='text-center py-8 text-gray-500 dark:text-gray-400'>
+                  暂无可用线路，请检查配置
+                </div>
+              )}
             </>
           )}
         </div>
