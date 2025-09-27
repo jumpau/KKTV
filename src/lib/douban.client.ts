@@ -1,5 +1,4 @@
 import { DoubanItem, DoubanResult } from './types';
-import { buildApiParams, getApiUrl, getDefaultPosterUrl } from './custom-api.config';
 
 interface DoubanCategoriesParams {
   kind: 'tv' | 'movie';
@@ -44,8 +43,7 @@ async function fetchWithTimeout(
   options: RequestInit = {}
 ): Promise<Response> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
-
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超旿
   const fetchOptions: RequestInit = {
     ...options,
     signal: controller.signal,
@@ -79,33 +77,36 @@ export async function fetchDoubanCategories(
 
   // 验证参数
   if (!['tv', 'movie'].includes(kind)) {
-    throw new Error('kind 参数必须是 tv 或 movie');
+    throw new Error('kind 参数必须昿tv 房movie');
   }
 
   if (!category || !type) {
-    throw new Error('category 和 type 参数不能为空');
+    throw new Error('category 咿type 参数不能为空');
   }
 
   if (pageLimit < 1 || pageLimit > 100) {
-    throw new Error('pageLimit 必须在 1-100 之间');
+    throw new Error('pageLimit 必须圿1-100 之间');
   }
 
   if (pageStart < 0) {
     throw new Error('pageStart 不能小于 0');
   }
 
-  // 计算页码 (pageStart 是从0开始的偏移量)
+  // 计算页码 (pageStart 是从0开始的偏移釿
   const page = Math.floor(pageStart / pageLimit) + 1;
   
+  // 根据具体分类获取分类ID
+  let targetTypeId: string;
+  } else {
+  }
+  
   // 使用配置构建API参数
-  const apiParams = buildApiParams({
-    category,
+    typeId: targetTypeId, // 直接使用具体的分类ID
     tag: type,
     page,
     pageSize: pageLimit,
   });
 
-  const target = getApiUrl(apiParams);
 
   try {
     const response = await fetchWithTimeout(target);
@@ -144,7 +145,7 @@ export async function fetchDoubanCategories(
 }
 
 /**
- * 统一的豆瓣分类数据获取函数，根据代理设置选择使用服务端 API 或客户端代理获取
+ * 统一的豆瓣分类数据获取函数，根据代理设置选择使用服务竿API 或客户端代理获取
  */
 export async function getDoubanCategories(
   params: DoubanCategoriesParams
@@ -208,34 +209,31 @@ export async function fetchDoubanList(
 
   // 验证参数
   if (!tag || !type) {
-    throw new Error('tag 和 type 参数不能为空');
+    throw new Error('tag 咿type 参数不能为空');
   }
 
   if (!['tv', 'movie'].includes(type)) {
-    throw new Error('type 参数必须是 tv 或 movie');
+    throw new Error('type 参数必须昿tv 房movie');
   }
 
   if (pageLimit < 1 || pageLimit > 100) {
-    throw new Error('pageLimit 必须在 1-100 之间');
+    throw new Error('pageLimit 必须圿1-100 之间');
   }
 
   if (pageStart < 0) {
     throw new Error('pageStart 不能小于 0');
   }
 
-  // 计算页码 (pageStart 是从0开始的偏移量)
+  // 计算页码 (pageStart 是从0开始的偏移釿
   const page = Math.floor(pageStart / pageLimit) + 1;
   
   // 使用配置构建API参数
-  const apiParams = buildApiParams({
-    type: type as 'movie' | 'tv',
     tag,
     page,
     pageSize: pageLimit,
     keyword: (tag && tag !== '热门' && tag !== '全部') ? tag : undefined,
   });
 
-  const target = getApiUrl(apiParams);
 
   try {
     const response = await fetchWithTimeout(target);
