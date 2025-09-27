@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
+
 import { getConfig } from '@/lib/config';
 
 export const runtime = 'edge';
@@ -22,6 +23,7 @@ export async function GET() {
       data: sources
     });
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('获取线路失败:', error);
     return NextResponse.json(
       { code: 500, message: '获取线路失败', error: String(error) },
@@ -97,6 +99,7 @@ export async function POST(request: Request) {
       }
     });
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('获取数据失败:', error);
     return NextResponse.json(
       { code: 500, message: '获取数据失败', error: String(error) },
