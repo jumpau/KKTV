@@ -85,7 +85,18 @@ export default function SourceDetailPage() {
       if (page === 1) setLoading(true);
       else setLoadingMore(true);
 
-      console.log(`开始获取第${page}页数据，分类ID: ${categoryId || '无'}`);
+      const requestParams = {
+        pg: page,
+        pagesize: 24,
+        ...(categoryId && { t: categoryId })
+      };
+
+      console.log(`🎯 开始获取第${page}页数据`);
+      console.log(`📋 请求参数:`, {
+        sourceId: sourceId,
+        action: 'videos',
+        params: requestParams
+      });
 
       const response = await fetch('/api/sources', {
         method: 'POST',
@@ -95,11 +106,7 @@ export default function SourceDetailPage() {
         body: JSON.stringify({
           sourceId: sourceId,
           action: 'videos',
-          params: {
-            pg: page,
-            pagesize: 24,
-            ...(categoryId && { t: categoryId })
-          }
+          params: requestParams
         }),
       });
 
