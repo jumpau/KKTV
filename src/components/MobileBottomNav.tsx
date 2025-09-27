@@ -2,10 +2,10 @@
 
 'use client';
 
-import { Clover, Film, Home, Search, Star, Tv } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Film, Home, Search } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
 
 interface MobileBottomNavProps {
   /**
@@ -23,49 +23,51 @@ const MobileBottomNav = ({ activePath }: MobileBottomNavProps) => {
   const [navItems, setNavItems] = useState([
     { icon: Home, label: '首页', href: '/' },
     { icon: Search, label: '搜索', href: '/search' },
-    {
-      icon: Film,
-      label: '电影',
-      href: '/douban?type=movie',
-    },
-    {
-      icon: Tv,
-      label: '剧集',
-      href: '/douban?type=tv',
-    },
-    {
-      icon: Clover,
-      label: '综艺',
-      href: '/douban?type=show',
-    },
   ]);
 
+  // 获取线路数据
   useEffect(() => {
-    const runtimeConfig = (window as any).RUNTIME_CONFIG;
-    if (runtimeConfig?.CUSTOM_CATEGORIES?.length > 0) {
-      setNavItems((prevItems) => [
-        ...prevItems,
-        {
-          icon: Star,
-          label: '自定义',
-          href: '/douban?type=custom',
-        },
-      ]);
-    }
+    const fetchSources = async () => {
+      try {
+        const response = await fetch('/api/sources');
+        if (response.ok) {
+          const sources = await response.json();
+          const sourceItems = sources.map((source: any) => ({
+            icon: Film,
+            label: source.name,
+            href: `/sources/${source.id}`,
+          }));
+          
+          setNavItems([
+            { icon: Home, label: '首页', href: '/' },
+            { icon: Search, label: '搜索', href: '/search' },
+            ...sourceItems,
+          ]);
+        }
+      } catch (error) {
+        console.error('获取线路失败:', error);
+      }
+    };
+
+    fetchSources();
   }, []);
 
   const isActive = (href: string) => {
-    const typeMatch = href.match(/type=([^&]+)/)?.[1];
-
     // 解码URL以进行正确的比较
     const decodedActive = decodeURIComponent(currentActive);
     const decodedItemHref = decodeURIComponent(href);
 
-    return (
-      decodedActive === decodedItemHref ||
-      (decodedActive.startsWith('/douban') &&
-        decodedActive.includes(`type=${typeMatch}`))
-    );
+    // 精确匹配
+    if (decodedActive === decodedItemHref) {
+      return true;
+    }
+
+    // 对于线路页面，检查是否在该线路的任何子页面
+    if (href.startsWith('/sources/') && decodedActive.startsWith(href)) {
+      return true;
+    }
+
+    return false;
   };
 
   return (
@@ -85,11 +87,16 @@ const MobileBottomNav = ({ activePath }: MobileBottomNavProps) => {
             <li
               key={item.href}
               className='flex-shrink-0'
-              style={{ width: '20vw', minWidth: '20vw' }}
+              style={{ 
+                width: navItems.length <= 3 ? '33.33vw' : 
+                       navItems.length <= 5 ? '20vw' : '15vw', 
+                minWidth: navItems.length <= 3 ? '33.33vw' : 
+                          navItems.length <= 5 ? '20vw' : '15vw' 
+              }}
             >
               <Link
                 href={item.href}
-                className='flex flex-col items-center justify-center w-full h-14 gap-1 text-xs'
+                className='flex flex-col items-center justify-center w-full h-14 gap-1 text-xs px-1'
               >
                 <item.icon
                   className={`h-6 w-6 ${
@@ -99,11 +106,12 @@ const MobileBottomNav = ({ activePath }: MobileBottomNavProps) => {
                   }`}
                 />
                 <span
-                  className={
+                  className={`truncate text-center ${
                     active
                       ? 'text-green-600 dark:text-green-400'
                       : 'text-gray-600 dark:text-gray-300'
-                  }
+                  }`}
+                  title={item.label}
                 >
                   {item.label}
                 </span>
