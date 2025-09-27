@@ -1,5 +1,5 @@
 import { DoubanItem, DoubanResult } from './types';
-import { getDoubanProxyUrl } from './utils';
+import { buildApiParams, getApiUrl, getDefaultPosterUrl } from './custom-api.config';
 
 interface DoubanCategoriesParams {
   kind: 'tv' | 'movie';
@@ -9,19 +9,30 @@ interface DoubanCategoriesParams {
   pageStart?: number;
 }
 
-interface DoubanCategoryApiResponse {
-  total: number;
-  items: Array<{
-    id: string;
-    title: string;
-    card_subtitle: string;
-    pic: {
-      large: string;
-      normal: string;
-    };
-    rating: {
-      value: number;
-    };
+interface CustomApiResponse {
+  code: number;
+  msg?: string;
+  page?: number;
+  pagecount?: number;
+  limit?: number;
+  total?: number;
+  list: Array<{
+    vod_id: number;
+    vod_name: string;
+    type_id: number;
+    type_name: string;
+    vod_en: string;
+    vod_time: string;
+    vod_remarks: string;
+    vod_play_from: string;
+    vod_pic?: string;
+    vod_score?: string;
+    vod_year?: string;
+  }>;
+  class?: Array<{
+    type_id: number;
+    type_pid: number;
+    type_name: string;
   }>;
 }
 
@@ -35,24 +46,19 @@ async function fetchWithTimeout(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
 
-  // 检查是否使用代理
-  const proxyUrl = getDoubanProxyUrl();
-  const finalUrl = proxyUrl ? `${proxyUrl}${encodeURIComponent(url)}` : url;
-
   const fetchOptions: RequestInit = {
     ...options,
     signal: controller.signal,
     headers: {
       'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-      Referer: 'https://movie.douban.com/',
       Accept: 'application/json, text/plain, */*',
       ...options.headers,
     },
   };
 
   try {
-    const response = await fetch(finalUrl, fetchOptions);
+    const response = await fetch(url, fetchOptions);
     clearTimeout(timeoutId);
     return response;
   } catch (error) {
@@ -61,12 +67,7 @@ async function fetchWithTimeout(
   }
 }
 
-/**
- * 检查是否应该使用客户端获取豆瓣数据
- */
-export function shouldUseDoubanClient(): boolean {
-  return getDoubanProxyUrl() !== null;
-}
+
 
 /**
  * 浏览器端豆瓣分类数据获取函数
@@ -93,7 +94,18 @@ export async function fetchDoubanCategories(
     throw new Error('pageStart 不能小于 0');
   }
 
-  const target = `https://m.douban.com/rexxar/api/v2/subject/recent_hot/${kind}?start=${pageStart}&limit=${pageLimit}&category=${category}&type=${type}`;
+  // 计算页码 (pageStart 是从0开始的偏移量)
+  const page = Math.floor(pageStart / pageLimit) + 1;
+  
+  // 使用配置构建API参数
+  const apiParams = buildApiParams({
+    category,
+    tag: type,
+    page,
+    pageSize: pageLimit,
+  });
+
+  const target = getApiUrl(apiParams);
 
   try {
     const response = await fetchWithTimeout(target);
@@ -102,15 +114,15 @@ export async function fetchDoubanCategories(
       throw new Error(`HTTP error! Status: ${response.status}`);
     }
 
-    const doubanData: DoubanCategoryApiResponse = await response.json();
+    const apiData: CustomApiResponse = await response.json();
 
     // 转换数据格式
-    const list: DoubanItem[] = doubanData.items.map((item) => ({
-      id: item.id,
-      title: item.title,
-      poster: item.pic?.normal || item.pic?.large || '',
-      rate: item.rating?.value ? item.rating.value.toFixed(1) : '',
-      year: item.card_subtitle?.match(/(\d{4})/)?.[1] || '',
+    const list: DoubanItem[] = apiData.list.map((item) => ({
+      id: item.vod_id.toString(),
+      title: item.vod_name,
+      poster: item.vod_pic || '', // 确保不为undefined
+      rate: item.vod_score || '',
+      year: item.vod_year || new Date(item.vod_time).getFullYear().toString(),
     }));
 
     return {
@@ -123,11 +135,11 @@ export async function fetchDoubanCategories(
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
         new CustomEvent('globalError', {
-          detail: { message: '获取豆瓣分类数据失败' },
+          detail: { message: '获取视频分类数据失败' },
         })
       );
     }
-    throw new Error(`获取豆瓣分类数据失败: ${(error as Error).message}`);
+    throw new Error(`获取视频分类数据失败: ${(error as Error).message}`);
   }
 }
 
@@ -137,30 +149,25 @@ export async function fetchDoubanCategories(
 export async function getDoubanCategories(
   params: DoubanCategoriesParams
 ): Promise<DoubanResult> {
-  if (shouldUseDoubanClient()) {
-    // 使用客户端代理获取（当设置了代理 URL 时）
-    return fetchDoubanCategories(params);
-  } else {
-    // 使用服务端 API（当没有设置代理 URL 时）
-    const { kind, category, type, pageLimit = 20, pageStart = 0 } = params;
-    const response = await fetch(
-      `/api/douban/categories?kind=${kind}&category=${category}&type=${type}&limit=${pageLimit}&start=${pageStart}`
-    );
+  // 直接使用服务端API
+  const { kind, category, type, pageLimit = 20, pageStart = 0 } = params;
+  const response = await fetch(
+    `/api/douban/categories?kind=${kind}&category=${category}&type=${type}&limit=${pageLimit}&start=${pageStart}`
+  );
 
-    if (!response.ok) {
-      // 触发全局错误提示
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('globalError', {
-            detail: { message: '获取豆瓣分类数据失败' },
-          })
-        );
-      }
-      throw new Error('获取豆瓣分类数据失败');
+  if (!response.ok) {
+    // 触发全局错误提示
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('globalError', {
+          detail: { message: '获取视频分类数据失败' },
+        })
+      );
     }
-
-    return response.json();
+    throw new Error('获取视频分类数据失败');
   }
+
+  return response.json();
 }
 
 interface DoubanListParams {
@@ -173,29 +180,25 @@ interface DoubanListParams {
 export async function getDoubanList(
   params: DoubanListParams
 ): Promise<DoubanResult> {
+  // 直接使用服务端API
   const { tag, type, pageLimit = 20, pageStart = 0 } = params;
-  if (shouldUseDoubanClient()) {
-    // 使用客户端代理获取（当设置了代理 URL 时）
-    return fetchDoubanList(params);
-  } else {
-    const response = await fetch(
-      `/api/douban?tag=${tag}&type=${type}&pageSize=${pageLimit}&pageStart=${pageStart}`
-    );
+  const response = await fetch(
+    `/api/douban?tag=${tag}&type=${type}&pageSize=${pageLimit}&pageStart=${pageStart}`
+  );
 
-    if (!response.ok) {
-      // 触发全局错误提示
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('globalError', {
-            detail: { message: '获取豆瓣列表数据失败' },
-          })
-        );
-      }
-      throw new Error('获取豆瓣列表数据失败');
+  if (!response.ok) {
+    // 触发全局错误提示
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('globalError', {
+          detail: { message: '获取视频列表数据失败' },
+        })
+      );
     }
-
-    return response.json();
+    throw new Error('获取视频列表数据失败');
   }
+
+  return response.json();
 }
 
 export async function fetchDoubanList(
@@ -220,7 +223,19 @@ export async function fetchDoubanList(
     throw new Error('pageStart 不能小于 0');
   }
 
-  const target = `https://movie.douban.com/j/search_subjects?type=${type}&tag=${tag}&sort=recommend&page_limit=${pageLimit}&page_start=${pageStart}`;
+  // 计算页码 (pageStart 是从0开始的偏移量)
+  const page = Math.floor(pageStart / pageLimit) + 1;
+  
+  // 使用配置构建API参数
+  const apiParams = buildApiParams({
+    type: type as 'movie' | 'tv',
+    tag,
+    page,
+    pageSize: pageLimit,
+    keyword: (tag && tag !== '热门' && tag !== '全部') ? tag : undefined,
+  });
+
+  const target = getApiUrl(apiParams);
 
   try {
     const response = await fetchWithTimeout(target);
@@ -229,15 +244,15 @@ export async function fetchDoubanList(
       throw new Error(`HTTP error! Status: ${response.status}`);
     }
 
-    const doubanData: DoubanCategoryApiResponse = await response.json();
+    const apiData: CustomApiResponse = await response.json();
 
     // 转换数据格式
-    const list: DoubanItem[] = doubanData.items.map((item) => ({
-      id: item.id,
-      title: item.title,
-      poster: item.pic?.normal || item.pic?.large || '',
-      rate: item.rating?.value ? item.rating.value.toFixed(1) : '',
-      year: item.card_subtitle?.match(/(\d{4})/)?.[1] || '',
+    const list: DoubanItem[] = apiData.list.map((item) => ({
+      id: item.vod_id.toString(),
+      title: item.vod_name,
+      poster: item.vod_pic || '', // 确保不为undefined
+      rate: item.vod_score || '',
+      year: item.vod_year || new Date(item.vod_time).getFullYear().toString(),
     }));
 
     return {
@@ -250,10 +265,10 @@ export async function fetchDoubanList(
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
         new CustomEvent('globalError', {
-          detail: { message: '获取豆瓣列表数据失败' },
+          detail: { message: '获取视频列表数据失败' },
         })
       );
     }
-    throw new Error(`获取豆瓣分类数据失败: ${(error as Error).message}`);
+    throw new Error(`获取视频列表数据失败: ${(error as Error).message}`);
   }
 }
