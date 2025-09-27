@@ -94,7 +94,6 @@ export default function SourceDetailPage() {
           sourceId: sourceId,
           action: 'videos',
           params: {
-            ac: 'videolist',
             pg: page,
             pagesize: 24,
             ...(categoryId && { t: categoryId })
@@ -106,18 +105,25 @@ export default function SourceDetailPage() {
       if (result.code === 200) {
         if (!source) setSource(result.source);
         
-        if (result.data.list) {
+        if (result.data && result.data.list) {
+          const newVideos = result.data.list;
+          
           if (reset || page === 1) {
-            setVideos(result.data.list);
+            setVideos(newVideos);
           } else {
-            setVideos(prev => [...prev, ...result.data.list]);
+            setVideos((prev: VideoItem[]) => [...prev, ...newVideos]);
           }
           
-          // 判断是否还有更多数据
-          setHasMore(result.data.list.length === 24);
+          // 判断是否还有更多数据 - 如果返回的数据少于请求的数量，说明没有更多了
+          setHasMore(newVideos.length === 24);
+          
+          console.log(`加载第${page}页，获得${newVideos.length}条数据，是否还有更多: ${newVideos.length === 24}`);
         } else {
           setHasMore(false);
+          console.log('没有获得数据，设置hasMore为false');
         }
+      } else {
+        console.error('API返回错误:', result);
       }
     } catch (error) {
       // 获取失败
@@ -143,8 +149,10 @@ export default function SourceDetailPage() {
       const windowHeight = window.innerHeight;
       const documentHeight = document.documentElement.scrollHeight;
       
-      if (scrollTop + windowHeight >= documentHeight - 1000) {
+      // 当滚动到距离底部500px时就开始加载下一页
+      if (scrollTop + windowHeight >= documentHeight - 500) {
         const nextPage = currentPage + 1;
+        console.log(`触发滚动加载，当前页：${currentPage}，加载下一页：${nextPage}`);
         setCurrentPage(nextPage);
         fetchVideos(nextPage, selectedCategory || undefined);
       }
