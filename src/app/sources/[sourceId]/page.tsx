@@ -164,11 +164,15 @@ export default function SourceDetailPage() {
     setCurrentPage(1);
   }, [sourceId, selectedCategory, fetchVideos]);
 
-  // 无限滚动
+  // 无限滚动 - 简单稳定的实现
   useEffect(() => {
-    console.log('🔧 设置滚动监听器，当前状态:', { currentPage, loadingMore, hasMore, videosCount: videos.length });
+    let lastTriggerTime = 0;
     
     const handleScroll = () => {
+      const now = Date.now();
+      // 节流：至少间隔500ms才能触发一次
+      if (now - lastTriggerTime < 500) return;
+      
       const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
       const windowHeight = window.innerHeight;
       const documentHeight = document.documentElement.scrollHeight;
@@ -177,7 +181,7 @@ export default function SourceDetailPage() {
       const distanceFromBottom = documentHeight - (scrollTop + windowHeight);
       const scrollPercentage = ((scrollTop + windowHeight) / documentHeight) * 100;
       
-      // 每次滚动都输出状态，不管是否触发加载
+      // 每次滚动都输出状态
       console.log('📜 滚动检测:', {
         scrollTop: Math.round(scrollTop),
         windowHeight,
@@ -192,16 +196,16 @@ export default function SourceDetailPage() {
       
       // 检查是否正在加载或没有更多数据
       if (loadingMore || !hasMore) {
-        console.log('❌ 滚动被阻止:', { loadingMore, hasMore, currentPage });
+        console.log('❌ 滚动被阻止:', { loadingMore, hasMore });
         return;
       }
       
-      // 当距离底部小于 500px 或滚动超过 80% 时触发加载
-      if (distanceFromBottom < 500 || scrollPercentage > 80) {
+      // 当距离底部小于 300px 或滚动超过 85% 时触发加载
+      if (distanceFromBottom < 300 || scrollPercentage > 85) {
+        lastTriggerTime = now;
         const nextPage = currentPage + 1;
         console.log(`🚀 触发滚动加载！距离底部: ${Math.round(distanceFromBottom)}px, 滚动: ${Math.round(scrollPercentage)}%, 当前页: ${currentPage}, 下一页: ${nextPage}`);
         
-        // 立即设置页码并加载
         setCurrentPage(nextPage);
         fetchVideos(nextPage, selectedCategory || undefined);
       }
@@ -209,14 +213,14 @@ export default function SourceDetailPage() {
 
     // 添加滚动监听器
     window.addEventListener('scroll', handleScroll, { passive: true });
-    console.log('✅ 滚动监听器已添加');
+    console.log('✅ 滚动监听器已添加，当前状态:', { currentPage, loadingMore, hasMore, videosCount: videos.length });
     
     // 清理函数
     return () => {
       window.removeEventListener('scroll', handleScroll);
       console.log('🧹 滚动监听器已移除');
     };
-  }, [currentPage, loadingMore, hasMore, selectedCategory, fetchVideos, videos.length]);
+  }, [currentPage, loadingMore, hasMore, videos.length, selectedCategory, fetchVideos]);
 
   // 处理分类切换
   const handleCategoryChange = (categoryId: number | null) => {
