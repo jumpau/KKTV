@@ -2,11 +2,16 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { ChevronLeft } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import VideoCard from '@/components/VideoCard';
+
+interface Category {
+  type_id: number;
+  type_name: string;
+}
 
 interface VideoItem {
   vod_id: number;
@@ -21,20 +26,30 @@ interface Source {
   name: string;
 }
 
+interface Category {
+  type_id: number;
+  type_name: string;
+}
+
 export default function SourceDetailPage() {
   const params = useParams();
   const sourceId = params?.sourceId as string;
   
   const [source, setSource] = useState<Source | null>(null);
   const [videos, setVideos] = useState<VideoItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
+  // 获取分类
   useEffect(() => {
     if (!sourceId) return;
 
-    const fetchData = async () => {
+    const fetchCategories = async () => {
       try {
-        // 获取视频数据
         const response = await fetch('/api/sources', {
           method: 'POST',
           headers: {
@@ -42,30 +57,105 @@ export default function SourceDetailPage() {
           },
           body: JSON.stringify({
             sourceId: sourceId,
-            action: 'videos',
-            params: {
-              pg: 1,
-              pagesize: 24
-            }
+            action: 'categories'
           }),
         });
 
         const result = await response.json();
         if (result.code === 200) {
           setSource(result.source);
-          if (result.data.list) {
-            setVideos(result.data.list);
+          if (result.data && Array.isArray(result.data)) {
+            setCategories(result.data);
           }
         }
       } catch (error) {
-        // 获取失败
-      } finally {
-        setLoading(false);
+        // 获取分类失败
       }
     };
 
-    fetchData();
+    fetchCategories();
   }, [sourceId]);
+
+  // 获取视频数据
+  const fetchVideos = async (page: number, categoryId?: number, reset = false) => {
+    try {
+      if (page === 1) setLoading(true);
+      else setLoadingMore(true);
+
+      const response = await fetch('/api/sources', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sourceId: sourceId,
+          action: 'videos',
+          params: {
+            pg: page,
+            pagesize: 24,
+            ...(categoryId && { t: categoryId })
+          }
+        }),
+      });
+
+      const result = await response.json();
+      if (result.code === 200) {
+        if (!source) setSource(result.source);
+        
+        if (result.data.list) {
+          if (reset || page === 1) {
+            setVideos(result.data.list);
+          } else {
+            setVideos(prev => [...prev, ...result.data.list]);
+          }
+          
+          // 判断是否还有更多数据
+          setHasMore(result.data.list.length === 24);
+        } else {
+          setHasMore(false);
+        }
+      }
+    } catch (error) {
+      // 获取失败
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  // 初始加载视频
+  useEffect(() => {
+    if (!sourceId) return;
+    fetchVideos(1, selectedCategory, true);
+    setCurrentPage(1);
+  }, [sourceId, selectedCategory]);
+
+  // 无限滚动
+  useEffect(() => {
+    const handleScroll = () => {
+      if (loadingMore || !hasMore) return;
+      
+      const scrollTop = window.pageYOffset;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      
+      if (scrollTop + windowHeight >= documentHeight - 1000) {
+        const nextPage = currentPage + 1;
+        setCurrentPage(nextPage);
+        fetchVideos(nextPage, selectedCategory);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [currentPage, loadingMore, hasMore, selectedCategory]);
+
+  // 处理分类切换
+  const handleCategoryChange = (categoryId: number | null) => {
+    setSelectedCategory(categoryId);
+    setCurrentPage(1);
+    setHasMore(true);
+  };
 
   if (loading) {
     return (
@@ -101,6 +191,37 @@ export default function SourceDetailPage() {
           <h1 className="text-2xl font-bold">{source.name}</h1>
         </div>
         
+        {/* 分类选择器 */}
+        {categories.length > 0 && (
+          <div className="mb-6">
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => handleCategoryChange(null)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  selectedCategory === null
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                全部
+              </button>
+              {categories.map((category) => (
+                <button
+                  key={category.type_id}
+                  onClick={() => handleCategoryChange(category.type_id)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    selectedCategory === category.type_id
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {category.type_name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        
         <div className="grid grid-cols-3 gap-x-2 gap-y-6 sm:gap-y-8 px-0 sm:px-2 sm:grid-cols-[repeat(auto-fill,_minmax(11rem,_1fr))] sm:gap-x-4">
           {videos.map((video) => (
             <div key={video.vod_id} className="w-full">
@@ -118,7 +239,23 @@ export default function SourceDetailPage() {
           ))}
         </div>
         
-        {videos.length === 0 && (
+        {/* 加载更多指示器 */}
+        {loadingMore && (
+          <div className="flex justify-center mt-8">
+            <div className="flex items-center gap-2">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+              <span className="text-gray-600">加载中...</span>
+            </div>
+          </div>
+        )}
+        
+        {!hasMore && videos.length > 0 && (
+          <div className="text-center text-gray-500 py-8">
+            已加载全部内容
+          </div>
+        )}
+        
+        {videos.length === 0 && !loading && (
           <div className="text-center text-gray-500 py-12">
             该线路暂无视频内容
           </div>
