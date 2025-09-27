@@ -47,7 +47,6 @@ interface SourceVideos {
 
 function HomeClient() {
   const [activeTab, setActiveTab] = useState<'home' | 'favorites'>('home');
-    const [_sources] = useState<SourceConfig[]>([]);
   const [sourceVideos, setSourceVideos] = useState<SourceVideos[]>([]);
   const [loading, setLoading] = useState(true);
   const { announcement } = useSite();
