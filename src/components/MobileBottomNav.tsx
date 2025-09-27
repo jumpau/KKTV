@@ -2,10 +2,10 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Film, Home, Search } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { Film, Home, Search } from 'lucide-react';
 
 interface MobileBottomNavProps {
   /**
@@ -45,7 +45,9 @@ const MobileBottomNav = ({ activePath }: MobileBottomNavProps) => {
           ]);
         }
       } catch (error) {
-        console.error('获取线路失败:', error);
+        // 获取线路失败，静默处理
+        // eslint-disable-next-line no-console
+        console.debug('获取线路失败:', error);
       }
     };
 
