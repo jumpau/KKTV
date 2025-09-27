@@ -2,38 +2,26 @@ import { NextResponse } from 'next/server';
 
 import { getCacheTime } from '@/lib/config';
 import { DoubanItem, DoubanResult } from '@/lib/types';
-import { buildApiParams, getApiUrl } from '@/lib/custom-api.config';
 
-interface CustomCategoryApiResponse {
-  code: number;
-  msg?: string;
-  page?: number;
-  pagecount?: number;
-  limit?: number;
-  total?: number;
-  list: Array<{
-    vod_id: number;
-    vod_name: string;
-    type_id: number;
-    type_name: string;
-    vod_en: string;
-    vod_time: string;
-    vod_remarks: string;
-    vod_play_from: string;
-    vod_pic?: string;
-    vod_score?: string;
-    vod_year?: string;
-  }>;
-  class?: Array<{
-    type_id: number;
-    type_pid: number;
-    type_name: string;
+interface DoubanCategoryApiResponse {
+  total: number;
+  items: Array<{
+    id: string;
+    title: string;
+    card_subtitle: string;
+    pic: {
+      large: string;
+      normal: string;
+    };
+    rating: {
+      value: number;
+    };
   }>;
 }
 
-async function fetchCustomApiData(
+async function fetchDoubanData(
   url: string
-): Promise<CustomCategoryApiResponse> {
+): Promise<DoubanCategoryApiResponse> {
   // 添加超时控制
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
@@ -44,12 +32,14 @@ async function fetchCustomApiData(
     headers: {
       'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+      Referer: 'https://movie.douban.com/',
       Accept: 'application/json, text/plain, */*',
+      Origin: 'https://movie.douban.com',
     },
   };
 
   try {
-    // 访问自定义API
+    // 尝试直接访问豆瓣API
     const response = await fetch(url, fetchOptions);
     clearTimeout(timeoutId);
 
@@ -84,6 +74,12 @@ export async function GET(request: Request) {
     );
   }
 
+  if (!['tv', 'movie'].includes(kind)) {
+    return NextResponse.json(
+      { error: 'kind 参数必须是 tv 或 movie' },
+      { status: 400 }
+    );
+  }
 
   if (pageLimit < 1 || pageLimit > 100) {
     return NextResponse.json(
@@ -99,31 +95,19 @@ export async function GET(request: Request) {
     );
   }
 
-  // 计算页码 (pageStart 是从0开始的偏移量)
-  const page = Math.floor(pageStart / pageLimit) + 1;
-  
-  // 使用配置构建API参数
-  const apiParams = buildApiParams({
-    type: kind as 'movie' | 'tv',
-    category: category || undefined,
-    tag: type || undefined,
-    page,
-    pageSize: pageLimit,
-  });
-
-  const target = getApiUrl(apiParams);
+  const target = `https://m.douban.com/rexxar/api/v2/subject/recent_hot/${kind}?start=${pageStart}&limit=${pageLimit}&category=${category}&type=${type}`;
 
   try {
-    // 调用自定义 API
-    const apiData = await fetchCustomApiData(target);
+    // 调用豆瓣 API
+    const doubanData = await fetchDoubanData(target);
 
     // 转换数据格式
-    const list: DoubanItem[] = apiData.list.map((item) => ({
-      id: item.vod_id.toString(),
-      title: item.vod_name,
-      poster: item.vod_pic || '', // 确保不为undefined
-      rate: item.vod_score || '',
-      year: item.vod_year || new Date(item.vod_time).getFullYear().toString(),
+    const list: DoubanItem[] = doubanData.items.map((item) => ({
+      id: item.id,
+      title: item.title,
+      poster: item.pic?.normal || item.pic?.large || '',
+      rate: item.rating?.value ? item.rating.value.toFixed(1) : '',
+      year: item.card_subtitle?.match(/(\d{4})/)?.[1] || '',
     }));
 
     const response: DoubanResult = {
@@ -142,7 +126,7 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     return NextResponse.json(
-      { error: '获取视频数据失败', details: (error as Error).message },
+      { error: '获取豆瓣数据失败', details: (error as Error).message },
       { status: 500 }
     );
   }
