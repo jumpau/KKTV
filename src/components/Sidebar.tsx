@@ -4,7 +4,7 @@
 
 import { Film, Home, Menu, Search } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   createContext,
   useCallback,
@@ -56,7 +56,6 @@ declare global {
 const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   // 若同一次 SPA 会话中已经读取过折叠状态，则直接复用，避免闪烁
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
     if (
@@ -92,19 +91,15 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
   const [active, setActive] = useState(activePath);
 
   useEffect(() => {
-    // 优先使用传入的 activePath
+      // 计算当前激活状态
+  useEffect(() => {
     if (activePath) {
       setActive(activePath);
     } else {
       // 否则使用当前路径
-      const getCurrentFullPath = () => {
-        const queryString = searchParams.toString();
-        return queryString ? `${pathname}?${queryString}` : pathname;
-      };
-      const fullPath = getCurrentFullPath();
-      setActive(fullPath);
+      setActive(pathname);
     }
-  }, [activePath, pathname, searchParams]);
+  }, [activePath, pathname]);
 
   const handleToggle = useCallback(() => {
     const newState = !isCollapsed;
