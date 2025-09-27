@@ -90,14 +90,6 @@ export default function SourceDetailPage() {
         pagesize: 23,
         ...(categoryId && { t: categoryId })
       };
-
-      console.log(`🎯 开始获取第${page}页数据`);
-      console.log(`📋 请求参数:`, {
-        sourceId: sourceId,
-        action: 'videos',
-        params: requestParams
-      });
-
       const response = await fetch('/api/sources', {
         method: 'POST',
         headers: {
@@ -111,12 +103,10 @@ export default function SourceDetailPage() {
       });
 
       const result = await response.json();
-      console.log(`第${page}页API响应:`, result);
 
       if (result.code === 200) {
         if (!source) setSource(result.source);
         
-        // 检查数据结构 - API可能返回不同的结构
         let videoList: VideoItem[] = [];
         if (result.data && result.data.list) {
           videoList = result.data.list;
@@ -126,8 +116,6 @@ export default function SourceDetailPage() {
           videoList = result.data;
         }
 
-        console.log('解析的视频列表:', videoList);
-        
         if (videoList && videoList.length > 0) {
           if (reset || page === 1) {
             setVideos(videoList);
@@ -138,18 +126,14 @@ export default function SourceDetailPage() {
           // 判断是否还有更多数据
           const hasMoreData = videoList.length === 23;
           setHasMore(hasMoreData);
-          
-          console.log(`加载第${page}页，获得${videoList.length}条数据，是否还有更多: ${hasMoreData}`);
+
         } else {
           setHasMore(false);
-          console.log('没有获得视频数据，设置hasMore为false');
         }
       } else {
-        console.error('API返回错误:', result);
         setHasMore(false);
       }
     } catch (error) {
-      console.error('获取视频失败:', error);
       setHasMore(false);
     } finally {
       setLoading(false);
@@ -166,7 +150,6 @@ export default function SourceDetailPage() {
 
   // 无限滚动 - 使用state管理加载状态
   useEffect(() => {
-    console.log('🎯 设置body滚动监听器');
     let lastTriggerTime = 0;
     
     // 获取滚动位置的函数 - 专门针对 body 滚动
@@ -183,25 +166,13 @@ export default function SourceDetailPage() {
       const windowHeight = window.innerHeight;
       const documentHeight = document.body.scrollHeight;
       const distanceFromBottom = documentHeight - (scrollTop + windowHeight);
-      
-      console.log('📜 Body滚动检测:', {
-        scrollTop: Math.round(scrollTop),
-        windowHeight,
-        documentHeight,
-        distanceFromBottom: Math.round(distanceFromBottom),
-        loadingMore,
-        hasMore,
-        currentPage
-      });
-      
+
       // 检查是否应该触发加载 - 使用组件状态而不是局部变量
       if (!loadingMore && hasMore && distanceFromBottom < 300) {
         lastTriggerTime = now;
-        console.log('🚀 触发滚动加载！距离底部:', Math.round(distanceFromBottom) + 'px');
         
         setCurrentPage((prev: number) => {
           const nextPage = prev + 1;
-          console.log(`📈 开始加载第${nextPage}页`);
           fetchVideos(nextPage, selectedCategory || undefined);
           return nextPage;
         });
@@ -209,23 +180,9 @@ export default function SourceDetailPage() {
     };
 
     document.body.addEventListener('scroll', handleScroll, { passive: true });
-    console.log('✅ Body滚动监听器已绑定');
-    
-    // 测试滚动位置
-    setTimeout(() => {
-      console.log('🧪 当前Body滚动位置:', {
-        bodyScrollTop: document.body.scrollTop,
-        bodyScrollHeight: document.body.scrollHeight,
-        windowHeight: window.innerHeight,
-        loadingMore,
-        hasMore,
-        videosCount: videos.length
-      });
-    }, 2000);
     
     return () => {
       document.body.removeEventListener('scroll', handleScroll);
-      console.log('🧹 Body滚动监听器已移除');
     };
   }, [loadingMore, hasMore, currentPage, selectedCategory, fetchVideos]); // 依赖关键状态
 
