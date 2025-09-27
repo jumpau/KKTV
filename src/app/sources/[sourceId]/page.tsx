@@ -87,7 +87,7 @@ export default function SourceDetailPage() {
 
       const requestParams = {
         pg: page,
-        pagesize: 24,
+        pagesize: 23,
         ...(categoryId && { t: categoryId })
       };
 
@@ -136,7 +136,7 @@ export default function SourceDetailPage() {
           }
           
           // 判断是否还有更多数据
-          const hasMoreData = videoList.length === 24;
+          const hasMoreData = videoList.length === 23;
           setHasMore(hasMoreData);
           
           console.log(`加载第${page}页，获得${videoList.length}条数据，是否还有更多: ${hasMoreData}`);
