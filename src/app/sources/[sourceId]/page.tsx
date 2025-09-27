@@ -109,22 +109,33 @@ export default function SourceDetailPage() {
       if (result.code === 200) {
         if (!source) setSource(result.source);
         
+        // 检查数据结构 - API可能返回不同的结构
+        let videoList = [];
         if (result.data && result.data.list) {
-          const newVideos = result.data.list;
-          
+          videoList = result.data.list;
+        } else if (result.data && Array.isArray(result.data)) {
+          videoList = result.data;
+        } else if (Array.isArray(result.data)) {
+          videoList = result.data;
+        }
+
+        console.log('解析的视频列表:', videoList);
+        
+        if (videoList && videoList.length > 0) {
           if (reset || page === 1) {
-            setVideos(newVideos);
+            setVideos(videoList);
           } else {
-            setVideos((prev: VideoItem[]) => [...prev, ...newVideos]);
+            setVideos((prev: VideoItem[]) => [...prev, ...videoList]);
           }
           
-          // 判断是否还有更多数据 - 如果返回的数据少于请求的数量，说明没有更多了
-          setHasMore(newVideos.length === 24);
+          // 判断是否还有更多数据
+          const hasMoreData = videoList.length === 24;
+          setHasMore(hasMoreData);
           
-          console.log(`加载第${page}页，获得${newVideos.length}条数据，是否还有更多: ${newVideos.length === 24}`);
+          console.log(`加载第${page}页，获得${videoList.length}条数据，是否还有更多: ${hasMoreData}`);
         } else {
           setHasMore(false);
-          console.log('没有获得数据，设置hasMore为false');
+          console.log('没有获得视频数据，设置hasMore为false');
         }
       } else {
         console.error('API返回错误:', result);
@@ -148,13 +159,9 @@ export default function SourceDetailPage() {
 
   // 无限滚动
   useEffect(() => {
+    console.log('🔧 设置滚动监听器，当前状态:', { currentPage, loadingMore, hasMore, videosCount: videos.length });
+    
     const handleScroll = () => {
-      // 检查是否正在加载或没有更多数据
-      if (loadingMore || !hasMore) {
-        console.log('滚动被阻止:', { loadingMore, hasMore, currentPage });
-        return;
-      }
-      
       const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
       const windowHeight = window.innerHeight;
       const documentHeight = document.documentElement.scrollHeight;
@@ -163,7 +170,8 @@ export default function SourceDetailPage() {
       const distanceFromBottom = documentHeight - (scrollTop + windowHeight);
       const scrollPercentage = ((scrollTop + windowHeight) / documentHeight) * 100;
       
-      console.log('滚动状态:', {
+      // 每次滚动都输出状态，不管是否触发加载
+      console.log('📜 滚动检测:', {
         scrollTop: Math.round(scrollTop),
         windowHeight,
         documentHeight,
@@ -175,8 +183,14 @@ export default function SourceDetailPage() {
         videosCount: videos.length
       });
       
-      // 当距离底部小于 500px 或滚动超过 85% 时触发加载
-      if (distanceFromBottom < 500 || scrollPercentage > 85) {
+      // 检查是否正在加载或没有更多数据
+      if (loadingMore || !hasMore) {
+        console.log('❌ 滚动被阻止:', { loadingMore, hasMore, currentPage });
+        return;
+      }
+      
+      // 当距离底部小于 500px 或滚动超过 80% 时触发加载
+      if (distanceFromBottom < 500 || scrollPercentage > 80) {
         const nextPage = currentPage + 1;
         console.log(`🚀 触发滚动加载！距离底部: ${Math.round(distanceFromBottom)}px, 滚动: ${Math.round(scrollPercentage)}%, 当前页: ${currentPage}, 下一页: ${nextPage}`);
         
@@ -188,10 +202,12 @@ export default function SourceDetailPage() {
 
     // 添加滚动监听器
     window.addEventListener('scroll', handleScroll, { passive: true });
+    console.log('✅ 滚动监听器已添加');
     
     // 清理函数
     return () => {
       window.removeEventListener('scroll', handleScroll);
+      console.log('🧹 滚动监听器已移除');
     };
   }, [currentPage, loadingMore, hasMore, selectedCategory, fetchVideos, videos.length]);
 
@@ -304,6 +320,23 @@ export default function SourceDetailPage() {
         {videos.length === 0 && !loading && (
           <div className="text-center text-gray-500 py-12">
             该线路暂无视频内容
+          </div>
+        )}
+        
+        {/* 调试按钮 - 手动加载下一页 */}
+        {hasMore && !loadingMore && (
+          <div className="text-center mt-8">
+            <button
+              onClick={() => {
+                const nextPage = currentPage + 1;
+                console.log(`手动触发加载下一页: ${nextPage}`);
+                setCurrentPage(nextPage);
+                fetchVideos(nextPage, selectedCategory || undefined);
+              }}
+              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              手动加载下一页 (测试用)
+            </button>
           </div>
         )}
       </div>
