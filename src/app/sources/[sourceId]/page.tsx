@@ -80,7 +80,7 @@ export default function SourceDetailPage() {
   }, [sourceId]);
 
   // 获取视频数据
-  const fetchVideos = async (page: number, categoryId?: number, reset = false) => {
+  const fetchVideos = useCallback(async (page: number, categoryId?: number, reset = false) => {
     try {
       if (page === 1) setLoading(true);
       else setLoadingMore(true);
@@ -126,41 +126,52 @@ export default function SourceDetailPage() {
         console.error('API返回错误:', result);
       }
     } catch (error) {
-      // 获取失败
+      console.error('获取视频失败:', error);
     } finally {
       setLoading(false);
       setLoadingMore(false);
     }
-  };
+  }, [sourceId, source]);
 
   // 初始加载视频
   useEffect(() => {
     if (!sourceId) return;
     fetchVideos(1, selectedCategory || undefined, true);
     setCurrentPage(1);
-  }, [sourceId, selectedCategory]);
+  }, [sourceId, selectedCategory, fetchVideos]);
+
+  // 使用useCallback来避免闭包问题
+  const handleInfiniteScroll = useCallback(() => {
+    if (loadingMore || !hasMore) {
+      console.log('滚动被阻止:', { loadingMore, hasMore });
+      return;
+    }
+    
+    const scrollTop = window.pageYOffset;
+    const windowHeight = window.innerHeight;
+    const documentHeight = document.documentElement.scrollHeight;
+    
+    console.log('滚动检测:', {
+      scrollTop,
+      windowHeight,
+      documentHeight,
+      distance: documentHeight - (scrollTop + windowHeight)
+    });
+    
+    // 当滚动到距离底部300px时就开始加载下一页
+    if (scrollTop + windowHeight >= documentHeight - 300) {
+      const nextPage = currentPage + 1;
+      console.log(`触发滚动加载，当前页：${currentPage}，加载下一页：${nextPage}`);
+      setCurrentPage(nextPage);
+      fetchVideos(nextPage, selectedCategory || undefined);
+    }
+  }, [currentPage, loadingMore, hasMore, selectedCategory, fetchVideos]);
 
   // 无限滚动
   useEffect(() => {
-    const handleScroll = () => {
-      if (loadingMore || !hasMore) return;
-      
-      const scrollTop = window.pageYOffset;
-      const windowHeight = window.innerHeight;
-      const documentHeight = document.documentElement.scrollHeight;
-      
-      // 当滚动到距离底部500px时就开始加载下一页
-      if (scrollTop + windowHeight >= documentHeight - 500) {
-        const nextPage = currentPage + 1;
-        console.log(`触发滚动加载，当前页：${currentPage}，加载下一页：${nextPage}`);
-        setCurrentPage(nextPage);
-        fetchVideos(nextPage, selectedCategory || undefined);
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [currentPage, loadingMore, hasMore, selectedCategory]);
+    window.addEventListener('scroll', handleInfiniteScroll);
+    return () => window.removeEventListener('scroll', handleInfiniteScroll);
+  }, [handleInfiniteScroll]);
 
   // 处理分类切换
   const handleCategoryChange = (categoryId: number | null) => {
