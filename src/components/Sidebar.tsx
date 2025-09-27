@@ -127,18 +127,18 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
   const [menuItems, setMenuItems] = useState([
     {
       icon: Film,
-      label: '电影',
-      href: '/douban?type=movie',
+      label: '资源站',
+      href: '/sources',
     },
     {
       icon: Tv,
-      label: '剧集',
-      href: '/douban?type=tv',
+      label: '搜索',
+      href: '/search',
     },
     {
       icon: Clover,
-      label: '综艺',
-      href: '/douban?type=show',
+      label: '豆瓣',
+      href: '/douban?type=movie',
     },
   ]);
 
