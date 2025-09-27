@@ -117,7 +117,7 @@ export default function SourceDetailPage() {
         if (!source) setSource(result.source);
         
         // 检查数据结构 - API可能返回不同的结构
-        let videoList = [];
+        let videoList: VideoItem[] = [];
         if (result.data && result.data.list) {
           videoList = result.data.list;
         } else if (result.data && Array.isArray(result.data)) {
