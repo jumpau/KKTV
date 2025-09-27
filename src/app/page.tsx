@@ -47,7 +47,7 @@ interface SourceVideos {
 
 function HomeClient() {
   const [activeTab, setActiveTab] = useState<'home' | 'favorites'>('home');
-  const [sources, setSources] = useState<Source[]>([]);
+    const [_sources] = useState<SourceConfig[]>([]);
   const [sourceVideos, setSourceVideos] = useState<SourceVideos[]>([]);
   const [loading, setLoading] = useState(true);
   const { announcement } = useSite();
@@ -90,7 +90,7 @@ function HomeClient() {
         const sourcesResult = await sourcesResponse.json();
         
         if (sourcesResult.code === 200 && sourcesResult.data.length > 0) {
-          setSources(sourcesResult.data);
+          // 不再需要设置 sources 状态
           
           // 获取所有线路的视频数据
           const allSources = sourcesResult.data;
