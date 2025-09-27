@@ -22,8 +22,13 @@ export default function SourcesPageContent() {
         const response = await fetch('/api/sources');
         const result = await response.json();
         
-        if (result.code === 200) {
+        // 检查不同的响应格式
+        if (Array.isArray(result)) {
+          setSources(result);
+        } else if (result.code === 200 && result.data) {
           setSources(result.data);
+        } else if (result.sources) {
+          setSources(result.sources);
         }
       } catch (error) {
         // 获取失败
