@@ -158,7 +158,7 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
       <div className='hidden md:flex'>
         <aside
           data-sidebar
-          className={`fixed top-0 left-0 h-screen bg-white/40 backdrop-blur-xl transition-all duration-300 border-r border-gray-200/50 z-10 shadow-lg dark:bg-gray-900/70 dark:border-gray-700/50 ${
+          className={`fixed top-0 left-0 h-screen min-h-screen bg-white/40 backdrop-blur-xl transition-all duration-300 border-r border-gray-200/50 z-10 shadow-lg dark:bg-gray-900/70 dark:border-gray-700/50 ${
             isCollapsed ? 'w-16' : 'w-64'
           }`}
         >
@@ -185,8 +185,15 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
             </div>
 
             {/* Navigation 区域 */}
-            <nav className='px-2 mt-4 space-y-1'>
-              <div className='space-y-1'>
+            <nav 
+              className='flex-1 px-2 mt-4 overflow-y-auto hover:overflow-y-scroll'
+              style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#d1d5db transparent',
+                WebkitOverflowScrolling: 'touch'
+              }}
+            >
+              <div className='space-y-1 pb-4'>
                 {menuItems.map((item) => {
                   const decodedActive = decodeURIComponent(active);
                   const decodedItemHref = decodeURIComponent(item.href);
