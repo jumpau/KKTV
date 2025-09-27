@@ -88,16 +88,12 @@ export async function POST(request: Request) {
       url += '/?' + searchParams.toString();
     }
 
-    console.log(`🔗 最终API请求URL: ${url}`);
-    console.log(`📝 请求参数:`, { sourceId, action, params });
-
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
     });
 
-    console.log(`🌐 API响应状态: ${response.status} ${response.statusText}`);
 
     if (!response.ok) {
       console.error(`❌ API请求失败: ${response.status} ${response.statusText}`);
@@ -105,11 +101,6 @@ export async function POST(request: Request) {
     }
 
     const data = await response.json();
-    console.log(`📊 API返回数据结构:`, {
-      hasData: !!data,
-      dataKeys: data ? Object.keys(data) : [],
-      listLength: data?.list?.length || 0
-    });
     
     return NextResponse.json({
       code: 200,
@@ -129,3 +120,4 @@ export async function POST(request: Request) {
     );
   }
 }
+
