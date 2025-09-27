@@ -127,34 +127,17 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
   const [menuItems, setMenuItems] = useState([
     {
       icon: Film,
-      label: '资源站',
+      label: '线路',
       href: '/sources',
     },
     {
-      icon: Tv,
+      icon: Search,
       label: '搜索',
       href: '/search',
     },
-    {
-      icon: Clover,
-      label: '豆瓣',
-      href: '/douban?type=movie',
-    },
   ]);
 
-  useEffect(() => {
-    const runtimeConfig = (window as any).RUNTIME_CONFIG;
-    if (runtimeConfig?.CUSTOM_CATEGORIES?.length > 0) {
-      setMenuItems((prevItems) => [
-        ...prevItems,
-        {
-          icon: Star,
-          label: '自定义',
-          href: '/douban?type=custom',
-        },
-      ]);
-    }
-  }, []);
+  // 移除了自定义分类逻辑
 
   return (
     <SidebarContext.Provider value={contextValue}>
@@ -247,8 +230,8 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
 
                   const isActive =
                     decodedActive === decodedItemHref ||
-                    (decodedActive.startsWith('/douban') &&
-                      decodedActive.includes(`type=${typeMatch}`));
+                    (decodedActive.startsWith('/sources') &&
+                      item.href === '/sources');
                   const Icon = item.icon;
                   return (
                     <Link

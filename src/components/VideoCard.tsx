@@ -28,7 +28,7 @@ interface VideoCardProps {
   source_name?: string;
   progress?: number;
   year?: string;
-  from?: 'playrecord' | 'favorite' | 'search' | 'douban' | 'source';
+  from: 'playrecord' | 'favorite' | 'search' | 'douban';
   currentEpisode?: number;
   douban_id?: string;
   onDelete?: () => void;
@@ -263,17 +263,8 @@ export default function VideoCard({
         showDoubanLink: true,
         showRating: !!rate,
       },
-      source: {
-        showSourceName: true,
-        showProgress: false,
-        showPlayButton: true,
-        showHeart: false,
-        showCheckCircle: false,
-        showDoubanLink: false,
-        showRating: false,
-      },
     };
-    return configs[from || 'source'] || configs.search;
+    return configs[from] || configs.search;
   }, [from, isAggregate, actualDoubanId, rate]);
 
   return (
@@ -348,7 +339,7 @@ export default function VideoCard({
           </div>
         )}
 
-
+        {/* 豆瓣链接 - 已移除 */}
       </div>
 
       {/* 进度条 */}
