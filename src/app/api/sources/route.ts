@@ -60,17 +60,36 @@ export async function POST(request: Request) {
       // 获取分类信息 - 使用ac=list来获取分类
       const searchParams = new URLSearchParams({
         ac: 'list',
-        ...(params || {})
+        at: 'json'
       });
+      // 添加额外参数（如果有）
+      if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && key !== 'ac') {
+            searchParams.set(key, String(value));
+          }
+        });
+      }
       url += '/?' + searchParams.toString();
     } else if (action === 'videos') {
       // 获取视频列表 - 使用ac=videolist来获取视频
       const searchParams = new URLSearchParams({
         ac: 'videolist',
-        ...(params || {})
+        at: 'json'
       });
+      // 添加额外参数（如果有）
+      if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && key !== 'ac') {
+            searchParams.set(key, String(value));
+          }
+        });
+      }
       url += '/?' + searchParams.toString();
     }
+
+    console.log(`🔗 最终API请求URL: ${url}`);
+    console.log(`📝 请求参数:`, { sourceId, action, params });
 
     const response = await fetch(url, {
       headers: {
@@ -78,11 +97,19 @@ export async function POST(request: Request) {
       }
     });
 
+    console.log(`🌐 API响应状态: ${response.status} ${response.statusText}`);
+
     if (!response.ok) {
+      console.error(`❌ API请求失败: ${response.status} ${response.statusText}`);
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
     const data = await response.json();
+    console.log(`📊 API返回数据结构:`, {
+      hasData: !!data,
+      dataKeys: data ? Object.keys(data) : [],
+      listLength: data?.list?.length || 0
+    });
     
     return NextResponse.json({
       code: 200,
