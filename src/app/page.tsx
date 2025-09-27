@@ -92,9 +92,9 @@ function HomeClient() {
         if (sourcesResult.code === 200 && sourcesResult.data.length > 0) {
           setSources(sourcesResult.data);
           
-          // 取前3个线路获取视频数据
-          const topSources = sourcesResult.data.slice(0, 3);
-          const initialSourceVideos: SourceVideos[] = topSources.map((source: Source) => ({
+          // 获取所有线路的视频数据
+          const allSources = sourcesResult.data;
+          const initialSourceVideos: SourceVideos[] = allSources.map((source: Source) => ({
             source,
             videos: [],
             loading: true
@@ -103,7 +103,7 @@ function HomeClient() {
           setSourceVideos(initialSourceVideos);
           
           // 并行获取每个线路的视频数据
-          const videoPromises = topSources.map(async (source: Source) => {
+          const videoPromises = allSources.map(async (source: Source) => {
             try {
               const response = await fetch('/api/sources', {
                 method: 'POST',
@@ -115,7 +115,7 @@ function HomeClient() {
                   action: 'videos',
                   params: {
                     pg: 1,
-                    pagesize: 10
+                    pagesize: 20
                   }
                 }),
               });
