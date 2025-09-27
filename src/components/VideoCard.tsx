@@ -28,7 +28,7 @@ interface VideoCardProps {
   source_name?: string;
   progress?: number;
   year?: string;
-  from: 'playrecord' | 'favorite' | 'search' | 'douban';
+  from?: 'playrecord' | 'favorite' | 'search' | 'douban' | 'source';
   currentEpisode?: number;
   douban_id?: string;
   onDelete?: () => void;
@@ -263,8 +263,17 @@ export default function VideoCard({
         showDoubanLink: true,
         showRating: !!rate,
       },
+      source: {
+        showSourceName: true,
+        showProgress: false,
+        showPlayButton: true,
+        showHeart: false,
+        showCheckCircle: false,
+        showDoubanLink: false,
+        showRating: false,
+      },
     };
-    return configs[from] || configs.search;
+    return configs[from || 'source'] || configs.search;
   }, [from, isAggregate, actualDoubanId, rate]);
 
   return (
@@ -339,20 +348,7 @@ export default function VideoCard({
           </div>
         )}
 
-        {/* 豆瓣链接 */}
-        {config.showDoubanLink && actualDoubanId && (
-          <a
-            href={`https://movie.douban.com/subject/${actualDoubanId}`}
-            target='_blank'
-            rel='noopener noreferrer'
-            onClick={(e) => e.stopPropagation()}
-            className='absolute top-2 left-2 opacity-0 -translate-x-2 transition-all duration-300 ease-in-out delay-100 group-hover:opacity-100 group-hover:translate-x-0'
-          >
-            <div className='bg-green-500 text-white text-xs font-bold w-7 h-7 rounded-full flex items-center justify-center shadow-md hover:bg-green-600 hover:scale-[1.1] transition-all duration-300 ease-out'>
-              <Link size={16} />
-            </div>
-          </a>
-        )}
+
       </div>
 
       {/* 进度条 */}
