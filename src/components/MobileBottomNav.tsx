@@ -31,7 +31,18 @@ const MobileBottomNav = ({ activePath }: MobileBottomNavProps) => {
       try {
         const response = await fetch('/api/sources');
         if (response.ok) {
-          const sources = await response.json();
+          const result = await response.json();
+          
+          // 支持多种 API 响应格式
+          let sources = [];
+          if (Array.isArray(result)) {
+            sources = result;
+          } else if (result.code === 200 && result.data) {
+            sources = result.data;
+          } else if (result.sources) {
+            sources = result.sources;
+          }
+          
           const sourceItems = sources.map((source: any) => ({
             icon: Film,
             label: source.name,
