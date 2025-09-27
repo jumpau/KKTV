@@ -1,9 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+
 import { ChevronLeft } from 'lucide-react';
-import Link from 'next/link';
 import PageLayout from '@/components/PageLayout';
 import VideoCard from '@/components/VideoCard';
 
@@ -126,3 +127,5 @@ export default function SourceDetailPage() {
     </PageLayout>
   );
 }
+
+export const runtime = 'edge';
