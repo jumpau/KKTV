@@ -164,45 +164,37 @@ export default function SourceDetailPage() {
     setCurrentPage(1);
   }, [sourceId, selectedCategory, fetchVideos]);
 
-  // 无限滚动 - 多种滚动检测方式
+  // 无限滚动 - 借鉴搜索页面的实现，监听 document.body
   useEffect(() => {
-    console.log('🎯 设置滚动监听器');
+    console.log('🎯 设置body滚动监听器');
     let isLoading = false;
-    let lastTriggerTime = 0;
+    let isRunning = false;
     
-    const handleScroll = () => {
-      const now = Date.now();
-      // 节流控制，减少到200ms让滚动更灵敏
-      if (now - lastTriggerTime < 200) return;
-      
-      // 多种方式获取滚动位置
-      const scrollTop = Math.max(window.pageYOffset, document.documentElement.scrollTop, document.body.scrollTop);
+    // 获取滚动位置的函数 - 专门针对 body 滚动
+    const getScrollTop = () => {
+      return document.body.scrollTop || 0;
+    };
+
+    const checkScrollPosition = () => {
+      if (!isRunning) return;
+
+      const scrollTop = getScrollTop();
       const windowHeight = window.innerHeight;
-      const documentHeight = Math.max(
-        document.body.scrollHeight,
-        document.body.offsetHeight,
-        document.documentElement.clientHeight,
-        document.documentElement.scrollHeight,
-        document.documentElement.offsetHeight
-      );
-      
+      const documentHeight = document.body.scrollHeight;
       const distanceFromBottom = documentHeight - (scrollTop + windowHeight);
-      const scrollPercentage = ((scrollTop + windowHeight) / documentHeight) * 100;
       
-      console.log('📜 滚动事件 [' + new Date().toLocaleTimeString() + ']:', {
+      console.log('📜 持续滚动检测:', {
         scrollTop: Math.round(scrollTop),
         windowHeight,
         documentHeight,
         distanceFromBottom: Math.round(distanceFromBottom),
-        scrollPercentage: Math.round(scrollPercentage) + '%',
         isLoading,
         shouldLoad: !isLoading && distanceFromBottom < 500
       });
       
-      // 检查是否应该触发加载 - 放宽条件
+      // 检查是否应该触发加载
       if (!isLoading && distanceFromBottom < 500) {
         isLoading = true;
-        lastTriggerTime = now;
         console.log('🚀 触发滚动加载！距离底部:', Math.round(distanceFromBottom) + 'px');
         
         // 获取当前页码并加载下一页
@@ -216,58 +208,61 @@ export default function SourceDetailPage() {
           return nextPage;
         });
       }
+
+      requestAnimationFrame(checkScrollPosition);
     };
 
-    // 添加多个监听器以确保捕获滚动事件
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    document.addEventListener('scroll', handleScroll, { passive: true });
-    document.documentElement.addEventListener('scroll', handleScroll, { passive: true });
+    // 使用 requestAnimationFrame 持续检测滚动位置
+    isRunning = true;
+    checkScrollPosition();
+
+    // 监听 body 元素的滚动事件
+    const handleScroll = () => {
+      const scrollTop = getScrollTop();
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.body.scrollHeight;
+      const distanceFromBottom = documentHeight - (scrollTop + windowHeight);
+      
+      console.log('📜 Body滚动事件:', {
+        scrollTop: Math.round(scrollTop),
+        windowHeight,
+        documentHeight,
+        distanceFromBottom: Math.round(distanceFromBottom),
+        isLoading
+      });
+      
+      // 检查是否应该触发加载
+      if (!isLoading && distanceFromBottom < 500) {
+        isLoading = true;
+        console.log('🚀 触发滚动加载！距离底部:', Math.round(distanceFromBottom) + 'px');
+        
+        setCurrentPage((prev: number) => {
+          const nextPage = prev + 1;
+          console.log(`📈 加载第${nextPage}页`);
+          fetchVideos(nextPage, selectedCategory || undefined).finally(() => {
+            isLoading = false;
+          });
+          return nextPage;
+        });
+      }
+    };
+
+    document.body.addEventListener('scroll', handleScroll, { passive: true });
+    console.log('✅ Body滚动监听器已绑定');
     
-    console.log('✅ 滚动监听器已绑定到 window、document 和 documentElement');
-    
-    // 测试滚动位置和添加手动触发器
+    // 测试滚动位置
     setTimeout(() => {
-      const testScroll = {
-        windowScrollTop: window.pageYOffset,
-        documentScrollTop: document.documentElement.scrollTop,
+      console.log('🧪 当前Body滚动位置:', {
         bodyScrollTop: document.body.scrollTop,
-        windowHeight: window.innerHeight,
-        documentHeight: document.documentElement.scrollHeight,
-        bodyHeight: document.body.scrollHeight
-      };
-      console.log('🧪 详细滚动位置信息:', testScroll);
-      
-      // 添加临时的测试按钮来手动触发滚动事件
-      const testButton = document.createElement('button');
-      testButton.innerText = '🧪 测试滚动检测';
-      testButton.style.position = 'fixed';
-      testButton.style.bottom = '100px';
-      testButton.style.right = '20px';
-      testButton.style.zIndex = '9999';
-      testButton.style.background = 'red';
-      testButton.style.color = 'white';
-      testButton.style.padding = '10px';
-      testButton.style.border = 'none';
-      testButton.style.borderRadius = '5px';
-      testButton.onclick = () => {
-        console.log('🧪 手动触发滚动检测');
-        handleScroll();
-      };
-      document.body.appendChild(testButton);
-      
-      // 5秒后移除测试按钮
-      setTimeout(() => {
-        if (testButton && testButton.parentNode) {
-          testButton.parentNode.removeChild(testButton);
-        }
-      }, 5000);
+        bodyScrollHeight: document.body.scrollHeight,
+        windowHeight: window.innerHeight
+      });
     }, 2000);
     
     return () => {
-      window.removeEventListener('scroll', handleScroll);
-      document.removeEventListener('scroll', handleScroll);
-      document.documentElement.removeEventListener('scroll', handleScroll);
-      console.log('🧹 所有滚动监听器已移除');
+      isRunning = false; // 停止 requestAnimationFrame 循环
+      document.body.removeEventListener('scroll', handleScroll);
+      console.log('🧹 Body滚动监听器已移除');
     };
   }, [sourceId]); // 只在sourceId变化时重新设置
 
@@ -383,22 +378,7 @@ export default function SourceDetailPage() {
           </div>
         )}
         
-        {/* 调试按钮 - 手动加载下一页 */}
-        {hasMore && !loadingMore && (
-          <div className="text-center mt-8">
-            <button
-              onClick={() => {
-                const nextPage = currentPage + 1;
-                console.log(`手动触发加载下一页: ${nextPage}`);
-                setCurrentPage(nextPage);
-                fetchVideos(nextPage, selectedCategory || undefined);
-              }}
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-            >
-              手动加载下一页 (测试用)
-            </button>
-          </div>
-        )}
+
       </div>
     </PageLayout>
   );
