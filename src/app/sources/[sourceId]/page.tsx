@@ -126,7 +126,7 @@ export default function SourceDetailPage() {
   // 初始加载视频
   useEffect(() => {
     if (!sourceId) return;
-    fetchVideos(1, selectedCategory, true);
+    fetchVideos(1, selectedCategory || undefined, true);
     setCurrentPage(1);
   }, [sourceId, selectedCategory]);
 
@@ -142,7 +142,7 @@ export default function SourceDetailPage() {
       if (scrollTop + windowHeight >= documentHeight - 1000) {
         const nextPage = currentPage + 1;
         setCurrentPage(nextPage);
-        fetchVideos(nextPage, selectedCategory);
+        fetchVideos(nextPage, selectedCategory || undefined);
       }
     };
 
@@ -153,6 +153,7 @@ export default function SourceDetailPage() {
   // 处理分类切换
   const handleCategoryChange = (categoryId: number | null) => {
     setSelectedCategory(categoryId);
+    setVideos([]);
     setCurrentPage(1);
     setHasMore(true);
   };
